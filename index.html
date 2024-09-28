@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Punto Game</title>
+</head>
+
+<body>
+    <h1 class="text-6xl text-center mb-5">Punto Game</h1>
+    <div id="wrapper-wrapper"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+        integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+        $(function () {
+            var tuilePlaced = 0; 
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl("http://localhost:5000/chathub")
+                .build();
+
+            function addColor(currentCase, gameLoop) {
+                elem = $(`#wrapper-${gameLoop} #${currentCase.x}${currentCase.y}`);
+                switch (currentCase.sPlayer) {
+                    case "Player1":
+                        elem.css("background-color", "red")
+                        break;
+                    case "Player2":
+                        elem.css("background-color", "blue")
+                        break;
+                    case "Player3":
+                        elem.css("background-color", "yellow")
+                        break;
+                    case "Player4":
+                        elem.css("background-color", "green")
+                        break;
+                    default:
+                        elem.css("background-color", "black")
+                        break;
+                }
+            }
+
+            function updateTrayDisplay(tray, gameLoop) {
+                tuilePlaced = 0
+                tray.forEach((col) => {
+                    col['$values'].forEach((currentCase) => {
+                        if (currentCase.tuiles['$values'][0] != null) {
+                            tuilePlaced += currentCase.tuiles['$values'].length
+                            $(`#wrapper-${gameLoop} #counter`).html(tuilePlaced)
+                            addColor(currentCase.tuiles['$values'][0], gameLoop)
+                            $(`#wrapper-${gameLoop} #${currentCase.tuiles['$values'][0].x}${currentCase.tuiles['$values'][0].y}`).html(currentCase.tuiles['$values'][0].number)
+                        } else {
+                            // $(`#${currentCase.x}${currentCase.y}`).html("N")
+                        }
+                    })
+                });
+            }
+
+            function createTableau(gridSize, gameLoop) {
+                let wrapperElem = `<div id="wrapper-${gameLoop}" class="my-20"><h2 class="text-4xl text-center mb-2">Game Loop ${gameLoop}  - <span id="counter">0</span></h2></div>`
+                $('#wrapper-wrapper').append(wrapperElem)
+                for (let i = 0; i < gridSize; i++) {
+                    let row = `<div class="flex justify-center" id="row-${i}"></div>`
+                    $(`#wrapper-${gameLoop}`).append(row)
+                    for (let j = 0; j < gridSize; j++) {
+                        let cell = `<div class="border-solid border-2 border-indigo-600 w-[150px] h-[150px] flex justify-center items-center text-6xl font-bold text-white" id="${j}${i}"></div>`
+                        $(`#wrapper-${gameLoop} #row-${i}`).append(cell)
+                    }
+                }
+            }
+
+            connection.on("ReceiveData", async function (tray, gameLoop, gridSize) {
+                await createTableau(gridSize, gameLoop)
+                updateTrayDisplay(tray, gameLoop);
+            });
+
+            // Démarrez la connexion
+            connection.start()
+                // .then(async function () {
+                //     const gridSize = await connection.invoke("GetGridSize");
+                //     createTableau(gridSize);
+                // })
+                .then(async function () {
+                    console.log("Connected to SignalR hub");
+                    await joinGame("Player1");
+                    await joinGame("Player2");
+                })
+                .catch(function (err) {
+                    return console.error(err.toString());
+                });
+
+            // Fonction pour rejoindre le jeu
+            function joinGame(playerName) {
+                connection.invoke("JoinGame", playerName)
+                    .catch(function (err) {
+                        return console.error(err.toString());
+                    });
+            }
+        })
+    </script>
+</body>
+
+</html>
